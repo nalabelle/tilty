@@ -23,6 +23,7 @@ CONFIG = configparser.ConfigParser()
 
 def terminate_process(
     device: tilt_device.TiltDevice,
+    keep_running_flag: threading.Event,
     signal_number: int,
     frame: None
 ):  # noqa  # pylint: disable=unused-argument
@@ -34,6 +35,7 @@ def terminate_process(
         frame (TODO): The TODO
 
     """
+    keep_running_flag.clear()
     device.stop()
     sys.exit()
 
@@ -59,19 +61,19 @@ def scan_and_emit(device: tilt_device.TiltDevice, emitters: List[dict]):
 def scan_and_emit_thread(
     device: tilt_device.TiltDevice,
     config: configparser.ConfigParser,
-    keep_running: bool = False
+    keep_running: threading.Event
 ) -> None:
     """ method that calls the needful
 
     Args:
         device (TiltDevice): The bluetooth device to operate on.
         config (dict): The parsed configuration
-        keep_running (bool): Whether or not to keep running. Default: False
+        keep_running (threading.Event): Whether or not to keep running. Default: False
     """
     emitters = parse_config(config)
     click.echo('Scanning for Tilt data...')
     scan_and_emit(device, emitters)
-    while keep_running:
+    while keep_running.is_set():
         LOGGER.debug('Scanning for Tilt data...')
         try:
             scan_and_emit(device, emitters)
@@ -129,11 +131,17 @@ def run(
     handler.setLevel(logging_level)
     LOGGER.addHandler(handler)
 
+    keep_running_flag = threading.Event()
+    if keep_running:
+        keep_running_flag.set()
+
     device = tilt_device.TiltDevice()
-    signal.signal(signal.SIGINT, partial(terminate_process, device))
+    signal.signal(signal.SIGINT, partial(terminate_process, device, keep_running_flag))
     device.start()
-    threading.Thread(
+    main_thread = threading.Thread(
         target=scan_and_emit_thread,
         name='tilty_daemon',
-        args=(device, CONFIG, keep_running)
-    ).start()
+        args=(device, CONFIG, keep_running_flag)
+    )
+    main_thread.start()
+    main_thread.join()
