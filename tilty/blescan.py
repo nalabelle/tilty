@@ -42,7 +42,7 @@ def hci_le_set_scan_parameters(sock):
     sock.getsockopt(bluez.SOL_HCI, bluez.HCI_FILTER, 14)
 
 
-def get_events(sock, loop_count=100):
+def get_events(sock, loop_count=100) -> list:
     old_filter = sock.getsockopt(bluez.SOL_HCI, bluez.HCI_FILTER, 14)
     flt = bluez.hci_filter_new()
     bluez.hci_filter_all_events(flt)
@@ -51,12 +51,14 @@ def get_events(sock, loop_count=100):
     beacons = []
     for i in range(0, loop_count):  # pylint: disable=unused-variable
         pkt = sock.recv(255)
-        beacons.append(parse_packet(pkt))
+        parsed_packet = parse_packet(pkt)
+        if parsed_packet:
+            beacons.append(parsed_packet)
     sock.setsockopt(bluez.SOL_HCI, bluez.HCI_FILTER, old_filter)
     return beacons
 
 
-def parse_packet(pkt):
+def parse_packet(pkt) -> dict:
     # http://www.havlena.net/wp-content/themes/striking/includes/timthumb.php?src=/wp-content/uploads/ibeacon-packet.png&w=600&zc=1
     #pkt = b'   \x04>*                      \x02\x01x03\x01w\t  \xbc\xd0W\xef\x1e\x02\x01\x04\x1a\xffL\x00\x02\x15    \xa4\x95\xbb0\xc5\xb1KD\xb5\x12\x13p\xf0-t\xde  \x00B  \x03\xf7   \xc5\xa7'   # noqa
     #       |                  |           |                   |                                                    |                                                |      |         |          |  # noqa
