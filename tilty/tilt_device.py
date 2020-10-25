@@ -55,7 +55,6 @@ class TiltDevice:  # pylint: disable=too-few-public-methods
                     'temp': beacon['major'],
                     'mac': beacon['mac'],
                     'timestamp': datetime.now().isoformat(),
-                    'uuid': uuid
                 })
             else:
                 LOGGER.debug(
